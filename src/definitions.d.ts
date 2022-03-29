@@ -81,6 +81,18 @@ export interface ThemePreset {
     theme: Theme;
 }
 
+export interface ShadowCopy {
+    id: string;
+    copy: Partial<UserSettings>;
+    oldSettings: Partial<UserSettings>;
+}
+
+export interface ExternalConnection {
+    id: string;
+    isNative: boolean;
+    blockedActions: string[];
+}
+
 export interface UserSettings {
     enabled: boolean;
     fetchNews: boolean;
@@ -101,6 +113,8 @@ export interface UserSettings {
     enableForPDF: boolean;
     enableForProtectedPages: boolean;
     enableContextMenus: boolean;
+    shadowCopy: ShadowCopy[];
+    externalConnections: ExternalConnection[];
 }
 
 export interface TimeSettings {
@@ -185,4 +199,10 @@ export interface News {
     headline: string;
     important: boolean;
     read?: boolean;
+}
+
+export interface ExternalRequest {
+    type: string;
+    isNative: boolean;
+    data?: any;
 }

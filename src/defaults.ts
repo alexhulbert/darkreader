@@ -78,4 +78,6 @@ export const DEFAULT_SETTINGS: UserSettings = {
     enableForPDF: true,
     enableForProtectedPages: false,
     enableContextMenus: false,
+    externalConnections: [{ id: "darkreader", isNative: true, blockedActions: [] }],
+    shadowCopy: [],
 };

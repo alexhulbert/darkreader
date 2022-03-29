@@ -1,5 +1,5 @@
 declare const __DEBUG__: boolean;
-const DEBUG = __DEBUG__;
+const DEBUG = true;
 
 export function logInfo(...args: any[]) {
     DEBUG && console.info(...args);
