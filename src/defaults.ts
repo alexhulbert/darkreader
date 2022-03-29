@@ -5,12 +5,12 @@ import {isMacOS, isWindows, isCSSColorSchemePropSupported} from './utils/platfor
 
 export const DEFAULT_COLORS = {
     darkScheme: {
-        background: '#181a1b',
-        text: '#e8e6e3',
+        background: '#24101ac0',
+        text: '#ebdadd',
     },
     lightScheme: {
-        background: '#dcdad7',
-        text: '#181a1b',
+        background: '#ebdaddc0',
+        text: '#24101a',
     },
 };
 

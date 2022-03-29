@@ -87,7 +87,8 @@ export function cssFilterStyleSheetTemplate(filterValue: string, reverseFilterVa
         lines.push('');
         lines.push('/* Page background */');
         lines.push('html {');
-        lines.push(`  background: rgb(${bgColor.join(',')}) !important;`);
+        bgColor[3] = 0.75;
+        lines.push(`  background: rgba(${bgColor.join(',')}) !important;`);
         lines.push('}');
     }
 
@@ -161,7 +162,7 @@ function createReverseRule(reverseFilterValue: string, fix: InversionFix): strin
 
     if (fix.removebg.length > 0) {
         lines.push(`${joinSelectors(fix.removebg)} {`);
-        lines.push('  background: white !important;');
+        lines.push('  background: rgba(255,255,255,0.75) !important;');
         lines.push('}');
     }
 

@@ -1,12 +1,12 @@
 Default
 
 DARK
-background: #181a1b
-text: #e8e6e3
+background: #24101ac0
+text: #ebdadd
 
 LIGHT
-background: #181a1b
-text: #e8e6e3
+background: #ebdaddc0
+text: #24101a
 
 ================================
 

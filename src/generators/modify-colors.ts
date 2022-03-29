@@ -81,7 +81,7 @@ function modifyColorWithCache(rgb: RGBA, theme: Theme, modifyHSL: (hsl: HSLA, po
     return color;
 }
 
-function noopHSL(hsl: HSLA) {
+function noopHSL(hsl: HSLA, pole?: HSLA) {
     return hsl;
 }
 
@@ -118,8 +118,9 @@ function modifyLightModeHSL({h, s, l, a}: HSLA, poleFg: HSLA, poleBg: HSLA) {
     }
 
     const lx = scale(l, 0, 1, poleFg.l, poleBg.l);
+    const ax = scale(l, 0, 1, poleFg.a, poleBg.a);
 
-    return {h: hx, s: sx, l: lx, a};
+    return {h: hx, s: sx, l: lx, a: ax};
 }
 
 const MAX_BG_LIGHTNESS = 0.4;
@@ -133,9 +134,9 @@ function modifyBgHSL({h, s, l, a}: HSLA, pole: HSLA) {
         if (isNeutral) {
             const hx = pole.h;
             const sx = pole.s;
-            return {h: hx, s: sx, l: lx, a};
+            return {h: hx, s: sx, l: lx, a: a * pole.a};
         }
-        return {h, s, l: lx, a};
+        return {h, s, l: lx, a: a * pole.a};
     }
 
     let lx = scale(l, 0.5, 1, MAX_BG_LIGHTNESS, pole.l);
@@ -143,7 +144,7 @@ function modifyBgHSL({h, s, l, a}: HSLA, pole: HSLA) {
     if (isNeutral) {
         const hx = pole.h;
         const sx = pole.s;
-        return {h: hx, s: sx, l: lx, a};
+        return {h: hx, s: sx, l: lx, a: a * pole.a};
     }
 
     let hx = h;
@@ -163,7 +164,7 @@ function modifyBgHSL({h, s, l, a}: HSLA, pole: HSLA) {
         lx *= 0.75;
     }
 
-    return {h: hx, s, l: lx, a};
+    return {h: hx, s, l: lx, a: a * pole.a};
 }
 
 export function modifyBackgroundColor(rgb: RGBA, theme: Theme) {
@@ -171,7 +172,9 @@ export function modifyBackgroundColor(rgb: RGBA, theme: Theme) {
         return modifyLightSchemeColor(rgb, theme);
     }
     const pole = getBgPole(theme);
-    return modifyColorWithCache(rgb, {...theme, mode: 0}, modifyBgHSL, pole);
+    let ret = modifyColorWithCache(rgb, {...theme, mode: 0}, modifyBgHSL, pole);
+    if (ret.startsWith('#') && ret.length == 7) return ret + 'c0';
+    return ret;
 }
 
 const MIN_FG_LIGHTNESS = 0.55;
