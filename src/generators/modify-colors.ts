@@ -167,7 +167,7 @@ function modifyBgHSL({h, s, l, a}: HSLA, pole: HSLA) {
     return {h: hx, s, l: lx, a: a * pole.a};
 }
 
-export function modifyBackgroundColor(rgb: RGBA, theme: Theme) {
+export function modifyBackgroundColor(rgb: RGBA, theme: Theme, opaque: boolean = false) {
     if (theme.mode === 0) {
         return modifyLightSchemeColor(rgb, theme);
     }

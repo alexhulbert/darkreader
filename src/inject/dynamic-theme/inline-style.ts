@@ -251,11 +251,11 @@ export function overrideInlineStyle(element: HTMLElement, theme: FilterConfig, i
 
     const unsetProps = new Set(Object.keys(overrides));
 
-    function setCustomProp(targetCSSProp: string, modifierCSSProp: string, cssVal: string) {
+    function setCustomProp(targetCSSProp: string, modifierCSSProp: string, cssVal: string, opaque: boolean = false) {
         const isPropertyVariable = targetCSSProp.startsWith('--');
         const {customProp, dataAttr} = isPropertyVariable ? ({} as Overrides['']) : overrides[targetCSSProp];
 
-        const mod = getModifiableCSSDeclaration(modifierCSSProp, cssVal, {} as CSSStyleRule, variablesStore, ignoreImageSelectors, null);
+        const mod = getModifiableCSSDeclaration(modifierCSSProp, cssVal, {} as CSSStyleRule, variablesStore, ignoreImageSelectors, null, opaque);
         if (!mod) {
             return;
         }
@@ -351,6 +351,9 @@ export function overrideInlineStyle(element: HTMLElement, theme: FilterConfig, i
         // and complexity of handling async requests
         if (property === 'background-image' && value.includes('url')) {
             return;
+        }
+        if (property === 'box-shadow' && value !== 'none') {
+            setCustomProp('background-color', 'background-color', element.style.backgroundColor, true)
         }
         if (overrides.hasOwnProperty(property) || (property.startsWith('--') && !normalizedPropList[property])) {
             setCustomProp(property, property, value);

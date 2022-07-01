@@ -91,6 +91,13 @@ export function createStyleSheetModifier() {
                 }
             });
 
+            if (rule.style.boxShadow && rule.style.boxShadow !== 'none') {
+                const mod = getModifiableCSSDeclaration('background-color', '', rule, variablesStore, ignoreImageAnalysis, isAsyncCancelled, true);
+                if (mod) {
+                    modDecs.push(mod);
+                }
+            }
+
             let modRule: ModifiableCSSRule = null;
             if (modDecs.length > 0) {
                 const parentRule = rule.parentRule;

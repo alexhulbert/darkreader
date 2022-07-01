@@ -402,7 +402,7 @@ export class Extension implements ExtensionState {
             }
             logInfo(`Port: ${origin}, requested current settings.`);
             // Potentially add location settings?
-            const sanitizedData = getValidatedObject(this.user.settings, this.user.settings, ['shadowCopy', 'externalConnections']);
+            const sanitizedData = getValidatedObject(this.user.settings, this.user.settings, ['shadowCopy']);
             if (isNative) {
                 chrome.runtime.sendNativeMessage(origin, {type: 'requestSettings-response', data: sanitizedData});
             } else {
@@ -440,38 +440,22 @@ export class Extension implements ExtensionState {
 
     private connectedNativesPorts: Map<string, chrome.runtime.Port> = new Map();
 
-    private connectToNative = (native: string[] | string) => {
-        if (Array.isArray(native)) {
-            forEach(native, this.connectToNative);
-        } else if (!this.connectedNativesPorts.has(native)) {
+    private connectToNative = (native: string) => {
+        if (!this.connectedNativesPorts.has(native)) {
             const port = chrome.runtime.connectNative(native);
             this.connectedNativesPorts.set(native, port);
             port.onMessage.addListener((incomingData) => this.externalRequestsHandler(incomingData, native));
             port.onDisconnect.addListener(() => this.externalRequestsHandler({type: 'resetSettings', isNative: true}, native));
-            port.postMessage("blah");
         }
     };
 
     private registerExternalConnections() {
-        this.connectToNative(this.user.settings.externalConnections
-            .filter((externalConnection) => externalConnection.isNative)
-            .map((nativeConnection) => nativeConnection.id));
+        this.connectToNative("darkreader");
         chrome.runtime.onConnectExternal.addListener((port) => {
             logInfo(`Port ${port.sender.origin} has been connected to dark reader.`);
             port.onMessage.addListener((incomingData) => this.externalRequestsHandler(incomingData, port.sender.origin));
             port.onDisconnect.addListener(() => this.externalRequestsHandler({type: 'resetSettings', isNative: false}, port.sender.origin));
         });
-    }
-
-    private cleanNatives(removedValues: ExternalConnection[]) {
-        removedValues.map((entry) => entry.id)
-            .forEach((entry) => {
-                if (!this.connectedNativesPorts.has(entry)) {
-                    return;
-                }
-                this.connectedNativesPorts.get(entry).disconnect();
-                this.connectedNativesPorts.delete(entry);
-            });
     }
 
     private async getShortcuts() {
@@ -591,12 +575,6 @@ export class Extension implements ExtensionState {
         }
         if (prev.syncSettings !== this.user.settings.syncSettings) {
             this.user.saveSyncSetting(this.user.settings.syncSettings);
-        }
-        if (!isArrayEqual(prev.externalConnections, this.user.settings.externalConnections)) {
-            this.connectToNative(this.user.settings.externalConnections
-                .filter((externalConnection) => externalConnection.isNative)
-                .map((nativeConnection) => nativeConnection.id));
-            this.cleanNatives(prev.externalConnections.filter((entry) => this.user.settings.externalConnections.includes(entry)));
         }
         if (this.isExtensionSwitchedOn() && $settings.changeBrowserTheme != null && prev.changeBrowserTheme !== $settings.changeBrowserTheme) {
             if ($settings.changeBrowserTheme) {

@@ -114,7 +114,6 @@ export interface UserSettings {
     enableForProtectedPages: boolean;
     enableContextMenus: boolean;
     shadowCopy: ShadowCopy[];
-    externalConnections: ExternalConnection[];
 }
 
 export interface TimeSettings {

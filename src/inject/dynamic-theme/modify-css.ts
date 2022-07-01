@@ -48,6 +48,7 @@ export function getModifiableCSSDeclaration(
     variablesStore: VariablesStore,
     ignoreImageSelectors: string[],
     isCancelled: () => boolean,
+    opaque: boolean = false,
 ): ModifiableCSSDeclaration {
     if (property.startsWith('--')) {
         const modifier = getVariableModifier(variablesStore, property, value, rule, ignoreImageSelectors, isCancelled);
@@ -65,7 +66,9 @@ export function getModifiableCSSDeclaration(
         property === 'stroke' ||
         property === 'stop-color'
     ) {
-        const modifier = getColorModifier(property, value);
+        const modifier = opaque ?
+            (theme: Theme) => theme.darkSchemeBackgroundColor.slice(0, 7) + 'B0' :
+            getColorModifier(property, value);
         if (modifier) {
             return {property, value: modifier, important: getPriority(rule.style, property), sourceValue: value};
         }
