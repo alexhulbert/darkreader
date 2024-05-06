@@ -16,7 +16,7 @@ import {getDetectorHintsFor} from '../generators/detector-hints';
 import {getDynamicThemeFixesFor} from '../generators/dynamic-theme';
 import createStaticStylesheet from '../generators/static-theme';
 import {createSVGFilterStylesheet, getSVGFilterMatrixValue, getSVGReverseFilterMatrixValue} from '../generators/svg-filter';
-import type {ExtensionData, Theme, Shortcuts, UserSettings, TabInfo, TabData, Command, DevToolsData} from '../definitions';
+import type {ExtensionData, Theme, Shortcuts, UserSettings, TabInfo, TabData, Command, DevToolsData, ExternalRequest, ExternalConnection} from '../definitions';
 import {isSystemDarkModeEnabled, runColorSchemeChangeDetector} from '../utils/media-query';
 import {isFirefox} from '../utils/platform';
 import {MessageTypeBGtoCS} from '../utils/message';
@@ -28,6 +28,9 @@ import ContentScriptManager from './content-script-manager';
 import {AutomationMode} from '../utils/automation';
 import UIHighlights from './ui-highlights';
 import {getActiveTab} from '../utils/tabs';
+import {DEFAULT_SETTINGS, DEFAULT_THEME} from '../defaults';
+import {getValidatedObject, getPreviousObject} from '../utils/object';
+import {forEach, isArrayEqual} from '../utils/array';
 
 type AutomationState = 'turn-on' | 'turn-off' | 'scheme-dark' | 'scheme-light' | '';
 
@@ -250,6 +253,7 @@ export class Extension {
         Extension.onAppToggle();
         logInfo('loaded', UserStorage.settings);
 
+        Extension.registerExternalConnections();
         if (__THUNDERBIRD__) {
             TabManager.registerMailDisplayScript();
         } else {
@@ -384,6 +388,125 @@ export class Extension {
             });
         });
     }
+
+    // ============= !!!!!
+    private static copyShadowCopy(setting: Partial<UserSettings>, origin: string) {
+        const newshadowCopy = UserStorage.settings.shadowCopy.slice();
+        let shadowCopy = newshadowCopy.find(({id}) => id === origin);
+        const index = shadowCopy ? newshadowCopy.indexOf(shadowCopy) : newshadowCopy.length;
+        if (!shadowCopy) {
+            newshadowCopy.push({id: origin, copy: {} as UserSettings, oldSettings: UserStorage.settings});
+            shadowCopy = newshadowCopy[index];
+        }
+        shadowCopy.copy = {...shadowCopy.copy, ...setting};
+        newshadowCopy[index] = shadowCopy;
+        Extension.changeSettings({shadowCopy: newshadowCopy});
+    }
+
+    static externalRequestsHandler(incomingData: ExternalRequest, origin: string) {
+        const {type, data, isNative} = incomingData;
+        if (type === 'toggle') {
+            logInfo(`Port: ${origin}, toggled dark reader.`);
+            const newSettings: Partial<UserSettings> = {
+                enabled: !Extension.isExtensionSwitchedOn(),
+            };
+            Extension.changeSettings(newSettings);
+        }
+        if (type === 'toggleActiveTab') {
+            logInfo(`Port: ${origin}, toggled the current site.`);
+            Extension.toggleActiveTab();
+        }
+        if (type === 'changeSettings') {
+            if (!data) {
+                logWarn('No data detected for changeSettings.');
+                return;
+            }
+            logInfo(`Port: ${origin}, made changes to the settings.`);
+            const validatedData = getValidatedObject(data, DEFAULT_SETTINGS);
+            Extension.copyShadowCopy(validatedData, origin);
+            Extension.changeSettings(validatedData);
+            logInfo('Saved', UserStorage.settings);
+        }
+        if (type === 'requestSettings') {
+            if (!data) {
+                logWarn('No data detected for requestSettings.');
+                return;
+            }
+            logInfo(`Port: ${origin}, requested current settings.`);
+            // Potentially add location settings?
+            const sanitizedData = getValidatedObject(UserStorage.settings, UserStorage.settings, ['shadowCopy', 'externalConnections']);
+            if (isNative) {
+                chrome.runtime.sendNativeMessage(origin, {type: 'requestSettings-response', data: sanitizedData});
+            } else {
+                chrome.runtime.sendMessage(origin, {type: 'requestSettings-response', data: sanitizedData});
+            }
+        }
+        if (type === 'setTheme') {
+            if (!data) {
+                logWarn('No data detected for setTheme.');
+                return;
+            }
+            logInfo(`Port: ${origin}, made changes to the settings.`);
+            const validatedData = getValidatedObject(data, DEFAULT_THEME);
+            Extension.copyShadowCopy({theme: validatedData} as UserSettings, origin);
+            Extension.setTheme(validatedData);
+            logInfo('Saved', UserStorage.settings.theme);
+        }
+        if (type === 'resetSettings') {
+            const shadowCopy = UserStorage.settings.shadowCopy.find(({id}) => id === origin);
+            if (!shadowCopy) {
+                logWarn('No data detected to reset settings.');
+                return;
+            }
+            const previousSettings = getPreviousObject(shadowCopy.copy, UserStorage.settings, shadowCopy.oldSettings);
+            const index = UserStorage.settings.shadowCopy.indexOf(shadowCopy);
+            const newshadowCopy = UserStorage.settings.shadowCopy.slice();
+            newshadowCopy.splice(index, 1);
+            previousSettings ? Extension.changeSettings({...previousSettings, shadowCopy: newshadowCopy}) : Extension.changeSettings({shadowCopy: newshadowCopy});
+            if (isNative) {
+                Extension.connectedNativesPorts.delete(origin);
+            }
+            logInfo('Resseted', UserStorage.settings);
+        }
+    }
+
+    private static connectedNativesPorts: Map<string, chrome.runtime.Port> = new Map();
+
+    private static connectToNative = (native: string[] | string) => {
+        if (Array.isArray(native)) {
+            forEach(native, Extension.connectToNative);
+        } else if (!Extension.connectedNativesPorts.has(native)) {
+            const port = chrome.runtime.connectNative(native);
+            Extension.connectedNativesPorts.set(native, port);
+            port.onMessage.addListener((incomingData) => Extension.externalRequestsHandler(incomingData, native));
+            port.onDisconnect.addListener(() => Extension.externalRequestsHandler({type: 'resetSettings', isNative: true}, native));
+            port.postMessage("blah");
+        }
+    };
+
+    private static registerExternalConnections() {
+        Extension.connectToNative(UserStorage.settings.externalConnections
+            .filter((externalConnection) => externalConnection.isNative)
+            .map((nativeConnection) => nativeConnection.id));
+        chrome.runtime.onConnectExternal.addListener((port) => {
+            logInfo(`Port ${port.sender!.origin} has been connected to dark reader.`);
+            port.onMessage.addListener((incomingData) => Extension.externalRequestsHandler(incomingData, port.sender?.origin!));
+            port.onDisconnect.addListener(() => Extension.externalRequestsHandler({type: 'resetSettings', isNative: false}, port.sender?.origin!));
+        });
+    }
+
+    private static cleanNatives(removedValues: ExternalConnection[]) {
+        removedValues.map((entry) => entry.id)
+            .forEach((entry) => {
+                if (!Extension.connectedNativesPorts.has(entry)) {
+                    return;
+                }
+                Extension.connectedNativesPorts.get(entry)!.disconnect();
+                Extension.connectedNativesPorts.delete(entry);
+            });
+    }
+
+    // ============= !!!!!
 
     private static async getShortcuts() {
         const commands = await getCommands();
@@ -526,6 +649,12 @@ export class Extension {
         if (prev.syncSettings !== UserStorage.settings.syncSettings) {
             const promise = UserStorage.saveSyncSetting(UserStorage.settings.syncSettings);
             promises.push(promise);
+        }
+        if (!isArrayEqual(prev.externalConnections, UserStorage.settings.externalConnections)) {
+            Extension.connectToNative(UserStorage.settings.externalConnections
+                .filter((externalConnection) => externalConnection.isNative)
+                .map((nativeConnection) => nativeConnection.id));
+            Extension.cleanNatives(prev.externalConnections.filter((entry) => UserStorage.settings.externalConnections.includes(entry)));
         }
         if (Extension.isExtensionSwitchedOn() && $settings.changeBrowserTheme != null && prev.changeBrowserTheme !== $settings.changeBrowserTheme) {
             if ($settings.changeBrowserTheme) {

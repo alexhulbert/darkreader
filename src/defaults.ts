@@ -86,4 +86,6 @@ export const DEFAULT_SETTINGS: UserSettings = {
     enableForProtectedPages: false,
     enableContextMenus: false,
     detectDarkTheme: false,
+    externalConnections: [{ id: "darkreader", isNative: true, blockedActions: [] }],
+    shadowCopy: [],
 };

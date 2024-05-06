@@ -104,6 +104,18 @@ export interface Automation {
     behavior: 'OnOff' | 'Scheme';
 }
 
+export interface ShadowCopy {
+    id: string;
+    copy: Partial<UserSettings>;
+    oldSettings: Partial<UserSettings>;
+}
+
+export interface ExternalConnection {
+    id: string;
+    isNative: boolean;
+    blockedActions: string[];
+}
+
 export interface UserSettings {
     schemeVersion: number;
     enabled: boolean;
@@ -125,6 +137,8 @@ export interface UserSettings {
     enableForProtectedPages: boolean;
     enableContextMenus: boolean;
     detectDarkTheme: boolean;
+    shadowCopy: ShadowCopy[];
+    externalConnections: ExternalConnection[];
 }
 
 export interface TimeSettings {
@@ -268,3 +282,9 @@ export interface News {
 
 // These values need to match those in Manifest
 export type Command = 'toggle' | 'addSite' | 'switchEngine';
+
+export interface ExternalRequest {
+    type: string;
+    isNative: boolean;
+    data?: any;
+}
